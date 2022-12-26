@@ -8,32 +8,59 @@
 # １シフトに入る人数：（バイナリ変数の縦の和 - 1or2）^2 に係数を乗ずる
 
 # ＜ソフト制約＞ハード制約を満たしたシフトの中で、ソフト制約のペナルティ値のバランスを見て人間が恣意的に選ぶというのが無難か？
+
 import csv
 import numpy as np
 
 import dimod
 from neal import SimulatedAnnealingSampler
 
-MANPOWER = 8
-DAY = 31
-
 if __name__ == "__main__":
-    binary = np.empty((MANPOWER, DAY))
 
-    CONST_1 = []
+    # csvファイルから出勤希望度の制約を入力
+    CONST = []
     with open('shift.csv', encoding="utf-8-sig") as f:
         reader = csv.reader(f)
         for row in reader:
-            CONST_1.append([int(i) for i in row])
+            CONST.append([int(i) for i in row])
 
-    dict_for_bqm = {}
-    for i in range(len(CONST_1)):
-        for j in range(len(CONST_1[i])):
-            dict_for_bqm["x_{0}_{1}".format(i, j)] = CONST_1[i][j]
+    # パラメータ
+    MANPOWER = len(CONST)
+    DAY = len(CONST[0])
+    SEQ_CONST = 100
+    ONE_DAY_CONST = 10
 
-    bqm = dimod.BinaryQuadraticModel(dict_for_bqm, {}, 0, "BINARY")
+    # １次
+    liner = {}
 
+    for i1 in range(MANPOWER):
+        for j in range(DAY):
+            liner["x_{0}_{1}".format(i1, j)] = CONST[i1][j] - 2 * ONE_DAY_CONST  # -2は１シフトに入る人数制約による
+
+    # ２次
+    quadratic = {}
+    for i in range(MANPOWER):
+        for j in range(int(DAY / 2)):
+            j *= 2
+            quadratic[("x_{0}_{1}".format(i, j), "x_{0}_{1}".format(i, j + 1))] = SEQ_CONST
+
+    for i1 in range(MANPOWER):
+        for i2 in range(MANPOWER):
+            if i1 == i2:
+                for j in range(DAY):
+                    quadratic[("x_{0}_{1}".format(i1, j), "x_{0}_{1}".format(i1, j))] = 1 * ONE_DAY_CONST
+            else:
+                for j in range(DAY):
+                    quadratic[("x_{0}_{1}".format(i1, j), "x_{0}_{1}".format(i2, j))] = 2 * ONE_DAY_CONST
+
+    # BQMモデルに変換
+    bqm = dimod.BinaryQuadraticModel(liner, quadratic, 0, "BINARY")
+
+    # サンプリング
     SA_sampler = SimulatedAnnealingSampler()
     sample_set = SA_sampler.sample(bqm, num_reads=100)
     order = np.argsort(sample_set.record["energy"])
-    print(sample_set.record[order][:10])
+
+    # 表示
+    for m in range(MANPOWER):
+        print(sample_set.record[order][0][0][60 * m: 60 * m + 60][:30])
