@@ -10,6 +10,7 @@
 # ＜ソフト制約＞ハード制約を満たしたシフトの中で、ソフト制約のペナルティ値のバランスを見て人間が恣意的に選ぶというのが無難か？
 
 import csv
+import time
 import numpy as np
 
 import dimod
@@ -25,42 +26,89 @@ if __name__ == "__main__":
             CONST.append([int(i) for i in row])
 
     # パラメータ
-    MANPOWER = len(CONST)
-    DAY = len(CONST[0])
-    SEQ_CONST = 100
-    ONE_DAY_CONST = 10
+    MANPOWER = 8
+    DAY = 60
+
+    DESIRE_CONST = 100
+    SEQ_CONST = 500
+    SHIFT_SIZE_CONST = 500
+    SHIFT_SIZE_LIMIT = 1
+    WORKDAY = [7, 7, 7, 7, 7, 7, 7, 7]
+    WORKDAY_CONST = 10
+
+    NUM_READS = 100
 
     # １次
     liner = {}
-
-    for i1 in range(MANPOWER):
+    for i in range(MANPOWER):
         for j in range(DAY):
-            liner["x_{0}_{1}".format(i1, j)] = CONST[i1][j] - 2 * ONE_DAY_CONST  # -2は１シフトに入る人数制約による
+            liner_const = CONST[i][j] * DESIRE_CONST  # 出勤希望度による
+            liner_const += - (2 * SHIFT_SIZE_LIMIT) * SHIFT_SIZE_CONST  # １シフトに入る人数制約による
+            liner_const += - (2 * WORKDAY[i]) * WORKDAY_CONST  # 勤務日数希望による
+            try:
+                liner["x_{0}_{1}".format(i, j)] += liner_const
+            except KeyError:
+                liner["x_{0}_{1}".format(i, j)] = liner_const
 
     # ２次
     quadratic = {}
+
+    # 昼夜連勤の禁止による
     for i in range(MANPOWER):
         for j in range(int(DAY / 2)):
             j *= 2
-            quadratic[("x_{0}_{1}".format(i, j), "x_{0}_{1}".format(i, j + 1))] = SEQ_CONST
+            try:
+                quadratic[("x_{0}_{1}".format(i, j), "x_{0}_{1}".format(i, j + 1))] += SEQ_CONST
+            except KeyError:
+                quadratic[("x_{0}_{1}".format(i, j), "x_{0}_{1}".format(i, j + 1))] = SEQ_CONST
 
+    # １シフトに入る人数制約による
     for i1 in range(MANPOWER):
         for i2 in range(MANPOWER):
             if i1 == i2:
                 for j in range(DAY):
-                    quadratic[("x_{0}_{1}".format(i1, j), "x_{0}_{1}".format(i1, j))] = 1 * ONE_DAY_CONST
+                    try:
+                        quadratic[("x_{0}_{1}".format(i1, j), "x_{0}_{1}".format(i2, j))] += 1 * SHIFT_SIZE_CONST
+                    except KeyError:
+                        quadratic[("x_{0}_{1}".format(i1, j), "x_{0}_{1}".format(i2, j))] = 1 * SHIFT_SIZE_CONST
             else:
                 for j in range(DAY):
-                    quadratic[("x_{0}_{1}".format(i1, j), "x_{0}_{1}".format(i2, j))] = 2 * ONE_DAY_CONST
+                    try:
+                        quadratic[("x_{0}_{1}".format(i1, j), "x_{0}_{1}".format(i2, j))] += 2 * SHIFT_SIZE_CONST
+                    except KeyError:
+                        quadratic[("x_{0}_{1}".format(i1, j), "x_{0}_{1}".format(i2, j))] = 2 * SHIFT_SIZE_CONST
+
+    # 勤務日数希望による
+    for j1 in range(DAY):
+        for j2 in range(DAY):
+            if j1 == j2:
+                for i in range(MANPOWER):
+                    try:
+                        quadratic[("x_{0}_{1}".format(i, j1), "x_{0}_{1}".format(i, j2))] += 1 * WORKDAY_CONST
+                    except KeyError:
+                        quadratic[("x_{0}_{1}".format(i, j1), "x_{0}_{1}".format(i, j2))] = 1 * WORKDAY_CONST
+            else:
+                for i in range(MANPOWER):
+                    try:
+                        quadratic[("x_{0}_{1}".format(i, j1), "x_{0}_{1}".format(i, j2))] += 2 * WORKDAY_CONST
+                    except KeyError:
+                        quadratic[("x_{0}_{1}".format(i, j1), "x_{0}_{1}".format(i, j2))] = 2 * WORKDAY_CONST
 
     # BQMモデルに変換
     bqm = dimod.BinaryQuadraticModel(liner, quadratic, 0, "BINARY")
 
     # サンプリング
     SA_sampler = SimulatedAnnealingSampler()
-    sample_set = SA_sampler.sample(bqm, num_reads=100)
+    start_time = time.time()
+    sample_set = SA_sampler.sample(bqm, num_reads=NUM_READS)
+    print("SAの場合: {0:.4}秒 ({1}回試行)".format(time.time() - start_time, NUM_READS))
     order = np.argsort(sample_set.record["energy"])
 
-    # 表示
-    for m in range(MANPOWER):
-        print(sample_set.record[order][0][0][60 * m: 60 * m + 60][:30])
+    # csvファイルへの出力
+    with open("result.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([d for d in range(61)])
+        for m in range(MANPOWER):
+            res_list = ["M{0}".format(m + 1)]
+            res_list.extend(sample_set.record[order][0][0][60 * m: 60 * m + 60])
+            writer.writerow(res_list)
