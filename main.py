@@ -104,11 +104,17 @@ if __name__ == "__main__":
     print("SAの場合: {0:.4}秒 ({1}回試行)".format(time.time() - start_time, NUM_READS))
     order = np.argsort(sample_set.record["energy"])
 
-    # csvファイルへの出力
+    # ペナルティ値が最小の解だけcsvファイルへの出力（基本的に使わない）
     with open("result.csv", "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow([d for d in range(61)])
+        writer.writerow([d for d in range(DAY + 1)])
         for m in range(MANPOWER):
             res_list = ["M{0}".format(m + 1)]
-            res_list.extend(sample_set.record[order][0][0][60 * m: 60 * m + 60])
+            res_list.extend(sample_set.record[order][0][0][DAY * m: DAY * m + DAY])
             writer.writerow(res_list)
+
+    # 結果を全てcsvに出力
+    with open("all_result.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        for rec in sample_set.record[order]:
+            writer.writerow(rec[0])
