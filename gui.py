@@ -193,7 +193,6 @@ class Application(tk.Frame):
 
     # 最適化
     def optimize(self):
-        print(self.var_0.get(), self.var_1.get())
         self.model.setParam(des_const=self.var_0.get(), seq_const=self.var_1.get(), shift_size_const=self.var_2.get(),
                             shift_size_limit=self.var_3.get(), workday=[7, 7, 7, 7, 7, 7, 7, 7],
                             workday_const=self.var_4.get(), num_reads=self.var_5.get())
