@@ -38,18 +38,19 @@ class ShiftAnneal:
             for row in reader:
                 self.const.append([int(i) for i in row])
 
-    def setParam(self):
-        self.MANPOWER = 8
-        self.DAY = 60
+    def setParam(self, des_const, seq_const, shift_size_const, shift_size_limit, workday: list, workday_const,
+                 num_reads):
+        self.MANPOWER = len(self.const)
+        self.DAY = len(self.const[0])
 
-        self.DESIRE_CONST = 30
-        self.SEQ_CONST = 150
-        self.SHIFT_SIZE_CONST = 150
-        self.SHIFT_SIZE_LIMIT = 1
-        self.WORKDAY = [7, 7, 7, 7, 7, 7, 7, 7]
-        self.WORKDAY_CONST = 5
+        self.DESIRE_CONST = des_const
+        self.SEQ_CONST = seq_const
+        self.SHIFT_SIZE_CONST = shift_size_const
+        self.SHIFT_SIZE_LIMIT = shift_size_limit
+        self.WORKDAY = workday
+        self.WORKDAY_CONST = workday_const
 
-        self.NUM_READS = 100
+        self.NUM_READS = num_reads
 
     def setConst(self):
         # １次
