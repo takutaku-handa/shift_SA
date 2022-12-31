@@ -12,13 +12,13 @@ from dwave.system.samplers import DWaveSampler
 
 class ShiftAnneal:
     def __init__(self):
-        self.NAME = ["A", "B", "C", "D", "E", "F", "G", "H"]
+        self.NAME = []
         self.MANPOWER = 0
         self.DAY = 0
         self.DESIRE_CONST = 0
         self.SEQ_CONST = 0
         self.SHIFT_SIZE_CONST = 0
-        self.SHIFT_SIZE_LIMIT = 0
+        self.SHIFT_SIZE_LIMIT = []
         self.WORKDAY = []
         self.WORKDAY_CONST = 0
         self.NUM_READS = 0
@@ -36,20 +36,19 @@ class ShiftAnneal:
         with open(filename, encoding="utf-8-sig") as f:
             reader = csv.reader(f)
             for row in reader:
-                self.const.append([int(i) for i in row])
+                self.NAME.append(row[0])
+                self.WORKDAY.append(int(row[-1]))
+                self.const.append([int(i) for i in row[1: -1]])
 
-    def setParam(self, des_const, seq_const, shift_size_const, shift_size_limit, workday: list, workday_const,
-                 num_reads):
         self.MANPOWER = len(self.const)
         self.DAY = len(self.const[0])
 
+    def setParam(self, des_const, seq_const, shift_size_const, shift_size_limit: list, workday_const, num_reads):
         self.DESIRE_CONST = des_const
         self.SEQ_CONST = seq_const
         self.SHIFT_SIZE_CONST = shift_size_const
         self.SHIFT_SIZE_LIMIT = shift_size_limit
-        self.WORKDAY = workday
         self.WORKDAY_CONST = workday_const
-
         self.NUM_READS = num_reads
 
     def setConst(self):
@@ -57,8 +56,8 @@ class ShiftAnneal:
         for i in range(self.MANPOWER):
             for j in range(self.DAY):
                 liner_const = (self.const[i][j] * self.DESIRE_CONST)  # 出勤希望度による
-                liner_const += - (2 * self.SHIFT_SIZE_LIMIT) * self.SHIFT_SIZE_CONST  # １シフトに入る人数制約による
-                liner_const += - (2 * self.WORKDAY[i]) * self.WORKDAY_CONST  # 勤務日数希望による
+                liner_const -= 2 * self.SHIFT_SIZE_LIMIT[j] * self.SHIFT_SIZE_CONST  # １シフトに入る人数制約による
+                liner_const -= 2 * self.WORKDAY[i] * self.WORKDAY_CONST  # 勤務日数希望による
                 key = "x_{0}".format(self.getID(i, j))
                 try:
                     self.liner[key] += liner_const
@@ -78,7 +77,7 @@ class ShiftAnneal:
 
         # １シフトに入る人数制約による
         for i1 in range(self.MANPOWER):
-            for i2 in range(self.MANPOWER):
+            for i2 in range(i1, self.MANPOWER):
                 if i1 == i2:
                     for j in range(self.DAY):
                         key = ("x_{0}".format(self.getID(i1, j)), "x_{0}".format(self.getID(i2, j)))
@@ -96,7 +95,7 @@ class ShiftAnneal:
 
         # 勤務日数希望による
         for j1 in range(self.DAY):
-            for j2 in range(self.DAY):
+            for j2 in range(j1, self.DAY):
                 if j1 == j2:
                     for i in range(self.MANPOWER):
                         key = ("x_{0}".format(self.getID(i, j1)), "x_{0}".format(self.getID(i, j2)))
@@ -179,19 +178,22 @@ class ShiftAnneal:
                 index += 1
             pena_dist += math.sqrt(np.var(work_date))
 
-        for cv in count_vertical:
-            if cv > 1:
+        for cv in range(self.DAY):
+            if count_vertical[cv] > self.SHIFT_SIZE_LIMIT[cv]:
                 pena_over += 1
-            if cv < 1:
+            if count_vertical[cv] < self.SHIFT_SIZE_LIMIT[cv]:
                 pena_lack += 1
 
         for m in range(self.MANPOWER):
             gap = (self.WORKDAY[m] - count_horizontal[m]) * (self.WORKDAY[m] - count_horizontal[m])
             pena_workday += gap
 
+        if pena_dist:
+            pena_dist = round(pena_dist, 1)
+
         ret = [("0", pena_desire[0]), ("1", pena_desire[1]), ("2", pena_desire[2]), ("3", pena_desire[3]),
                ("昼夜連勤", pena_seq), ("人数超過", pena_over), ("人数不足", pena_lack),
-               ("ばらけ具合", int(pena_dist)), ("勤務日数希望違反", pena_workday),
+               ("ばらけ具合", pena_dist), ("勤務日数希望違反", pena_workday),
                ("最大連勤", max_seq_work), ("最大連休", max_seq_off)]
 
         return ret

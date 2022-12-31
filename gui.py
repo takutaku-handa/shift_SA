@@ -34,22 +34,21 @@ class Application(tk.Frame):
         self.tab_param = tk.Frame(self.notebook)
         self.tab_result = tk.Frame(self.notebook)
 
-        # tab_desire (特になし)
+        # tab_desire
+        self.shift_size_entry_list = []
 
         # tab_param
         self.var_0 = tk.IntVar(value=30)
         self.var_1 = tk.IntVar(value=150)
         self.var_2 = tk.IntVar(value=150)
-        self.var_3 = tk.IntVar(value=1)
-        self.var_4 = tk.IntVar(value=5)
-        self.var_5 = tk.IntVar(value=100)
+        self.var_3 = tk.IntVar(value=5)
+        self.var_4 = tk.IntVar(value=100)
 
         self.par_en_0 = tk.Entry(self.tab_param, textvariable=self.var_0)
         self.par_en_1 = tk.Entry(self.tab_param, textvariable=self.var_1)
         self.par_en_2 = tk.Entry(self.tab_param, textvariable=self.var_2)
         self.par_en_3 = tk.Entry(self.tab_param, textvariable=self.var_3)
         self.par_en_4 = tk.Entry(self.tab_param, textvariable=self.var_4)
-        self.par_en_5 = tk.Entry(self.tab_param, textvariable=self.var_5)
 
         # tab_result
         self.tr_res = None
@@ -72,47 +71,54 @@ class Application(tk.Frame):
         font_width = fw
         font_height = fh
         pad = pad
-        name_list = self.model.NAME
 
         f_const = tk.Frame(self.tab_desire, padx=10, pady=10)
         f_const.grid(row=0, column=0, padx=10, pady=10)
         for i in range(1, self.model.DAY + 1):
             lb_date = tk.Label(f_const, text=str(int((i + 1) / 2)), width=font_width, height=font_height)
             lb_date.grid(row=0, column=i, padx=pad)
+        lb_lab = tk.Label(f_const, text="希望", width=6, height=font_height)
+        lb_lab.grid(row=0, column=self.model.DAY + 1)
         const = self.model.const
-        for r1 in range(len(const)):
+        for r1 in range(self.model.MANPOWER):
             c_list = const[r1]
-            lb_name = tk.Label(f_const, text=name_list[r1], width=font_width + 3, height=font_height)
+            lb_name = tk.Label(f_const, text=self.model.NAME[r1], width=len(self.model.NAME[r1]) + 1,
+                               height=font_height)
             lb_name.grid(row=r1 + 1, column=0, padx=pad)
-            for r2 in range(len(c_list)):
+            for r2 in range(self.model.DAY):
                 point = c_list[r2]
                 lb_const = tk.Label(f_const, text=str(point), width=font_width, height=font_height)
                 lb_const.grid(row=r1 + 1, column=r2 + 1, padx=pad)
+            lb_wd = tk.Label(f_const, text=self.model.WORKDAY[r1], width=font_width, height=font_height)
+            lb_wd.grid(row=r1 + 1, column=self.model.DAY + 1, padx=pad)
+
+        for r3 in range(self.model.DAY):
+            shift_lim_var = tk.IntVar(value=1)
+            shift_lim_en = tk.Entry(f_const, width=font_width, textvariable=shift_lim_var)
+            shift_lim_en.grid(row=self.model.MANPOWER + 1, column=r3 + 1, padx=pad)
+            self.shift_size_entry_list.append(shift_lim_var)
 
     # tab_showの表示（更新）
     def show_param(self):
-        param_list = ["出勤希望度", "昼夜連勤", "人数過不足", "基準人数", "勤務日数", "サンプリング回数"]
+        param_list = ["出勤希望度", "昼夜連勤", "人数過不足", "勤務日数", "サンプリング回数"]
 
         par_lb_0 = tk.Label(self.tab_param, padx=10, pady=10, text=param_list[0])
         par_lb_1 = tk.Label(self.tab_param, padx=10, pady=10, text=param_list[1])
         par_lb_2 = tk.Label(self.tab_param, padx=10, pady=10, text=param_list[2])
         par_lb_3 = tk.Label(self.tab_param, padx=10, pady=10, text=param_list[3])
         par_lb_4 = tk.Label(self.tab_param, padx=10, pady=10, text=param_list[4])
-        par_lb_5 = tk.Label(self.tab_param, padx=10, pady=10, text=param_list[5])
 
         par_lb_0.grid(row=0, column=0)
         par_lb_1.grid(row=1, column=0)
         par_lb_2.grid(row=2, column=0)
-        par_lb_3.grid(row=2, column=2)
-        par_lb_4.grid(row=3, column=0)
-        par_lb_5.grid(row=4, column=0)
+        par_lb_3.grid(row=3, column=0)
+        par_lb_4.grid(row=4, column=0)
 
         self.par_en_0.grid(row=0, column=1)
         self.par_en_1.grid(row=1, column=1)
         self.par_en_2.grid(row=2, column=1)
-        self.par_en_3.grid(row=2, column=3)
-        self.par_en_4.grid(row=3, column=1)
-        self.par_en_5.grid(row=4, column=1)
+        self.par_en_3.grid(row=3, column=1)
+        self.par_en_4.grid(row=4, column=1)
 
     # tab_resultの表示（更新）
     def show_result(self):
@@ -193,14 +199,15 @@ class Application(tk.Frame):
 
     # 最適化
     def optimize(self):
+        ss = []
+        for var in self.shift_size_entry_list:
+            ss.append(int(var.get()))
         self.model.setParam(des_const=self.var_0.get(), seq_const=self.var_1.get(), shift_size_const=self.var_2.get(),
-                            shift_size_limit=self.var_3.get(), workday=[7, 7, 7, 7, 7, 7, 7, 7],
-                            workday_const=self.var_4.get(), num_reads=self.var_5.get())
+                            shift_size_limit=ss, workday_const=self.var_3.get(),
+                            num_reads=self.var_4.get())
         self.model.setConst()
         self.model.sample()
         self.notebook.add(self.tab_result, text="　結果リスト　")
-        ind = 0
-        # self.show_sample(sample=self.model.sample_set.record[self.model.order][0][0], column=0)
         self.show_result()
         self.notebook.select(self.tab_result)
 
