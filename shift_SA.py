@@ -6,9 +6,6 @@ import numpy as np
 import dimod
 from neal import SimulatedAnnealingSampler
 
-from dwave.system.composites import EmbeddingComposite
-from dwave.system.samplers import DWaveSampler
-
 
 class ShiftAnneal:
     def __init__(self):
@@ -43,12 +40,14 @@ class ShiftAnneal:
         self.MANPOWER = len(self.const)
         self.DAY = len(self.const[0])
 
-    def setParam(self, des_const, seq_const, shift_size_const, shift_size_limit: list, workday_const, num_reads):
+    def setParam(self, des_const, seq_const, shift_size_const, shift_size_limit: list, workday_const, workday: list,
+                 num_reads):
         self.DESIRE_CONST = des_const
         self.SEQ_CONST = seq_const
         self.SHIFT_SIZE_CONST = shift_size_const
         self.SHIFT_SIZE_LIMIT = shift_size_limit
         self.WORKDAY_CONST = workday_const
+        self.WORKDAY = workday
         self.NUM_READS = num_reads
 
     def setConst(self):

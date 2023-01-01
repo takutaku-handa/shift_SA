@@ -12,6 +12,13 @@ def selectCSV():
     return fl
 
 
+def print_date(var):
+    def ret():
+        print(var)
+
+    return ret
+
+
 class Application(tk.Frame):
     def __init__(self, master=None):
         super().__init__(master)
@@ -35,20 +42,26 @@ class Application(tk.Frame):
         self.tab_result = tk.Frame(self.notebook)
 
         # tab_desire
-        self.shift_size_entry_list = []
+        self.shift_lim_var_list = []
+        self.workday_list = []
 
         # tab_param
-        self.var_0 = tk.IntVar(value=30)
-        self.var_1 = tk.IntVar(value=150)
-        self.var_2 = tk.IntVar(value=150)
-        self.var_3 = tk.IntVar(value=5)
+        self.var_0 = tk.IntVar(value=50)
+        self.var_1 = tk.IntVar(value=50)
+        self.var_2 = tk.IntVar(value=50)
+        self.var_3 = tk.IntVar(value=50)
         self.var_4 = tk.IntVar(value=100)
 
-        self.par_en_0 = tk.Entry(self.tab_param, textvariable=self.var_0)
-        self.par_en_1 = tk.Entry(self.tab_param, textvariable=self.var_1)
-        self.par_en_2 = tk.Entry(self.tab_param, textvariable=self.var_2)
-        self.par_en_3 = tk.Entry(self.tab_param, textvariable=self.var_3)
-        self.par_en_4 = tk.Entry(self.tab_param, textvariable=self.var_4)
+        self.C_des = 0.6
+        self.C_seq = 3
+        self.C_lim = 3
+        self.C_wrk = 0.1
+
+        self.par_sc_0 = tk.Scale(self.tab_param, variable=self.var_0, orient="horizontal", from_=0, to=100, length=500)
+        self.par_sc_1 = tk.Scale(self.tab_param, variable=self.var_1, orient="horizontal", from_=0, to=100, length=500)
+        self.par_sc_2 = tk.Scale(self.tab_param, variable=self.var_2, orient="horizontal", from_=0, to=100, length=500)
+        self.par_sc_3 = tk.Scale(self.tab_param, variable=self.var_3, orient="horizontal", from_=0, to=100, length=500)
+        self.par_sc_4 = tk.Scale(self.tab_param, variable=self.var_4, orient="horizontal", from_=1, to=1000, length=500)
 
         # tab_result
         self.tr_res = None
@@ -89,14 +102,31 @@ class Application(tk.Frame):
                 point = c_list[r2]
                 lb_const = tk.Label(f_const, text=str(point), width=font_width, height=font_height)
                 lb_const.grid(row=r1 + 1, column=r2 + 1, padx=pad)
-            lb_wd = tk.Label(f_const, text=self.model.WORKDAY[r1], width=font_width, height=font_height)
-            lb_wd.grid(row=r1 + 1, column=self.model.DAY + 1, padx=pad)
+            # lb_wd = tk.Label(f_const, text=self.model.WORKDAY[r1], width=font_width, height=font_height)
+            # lb_wd.grid(row=r1 + 1, column=self.model.DAY + 1, padx=pad)
+
+            workday_var = tk.IntVar(value=self.model.WORKDAY[r1])
+            self.workday_list.append(workday_var)
+            workday_sb = tk.Spinbox(f_const, width=font_width + 3, textvariable=workday_var, from_=0, to=31,
+                                    increment=1)
+            workday_sb.grid(row=r1 + 1, column=self.model.DAY + 1, padx=pad)
 
         for r3 in range(self.model.DAY):
             shift_lim_var = tk.IntVar(value=1)
-            shift_lim_en = tk.Entry(f_const, width=font_width, textvariable=shift_lim_var)
-            shift_lim_en.grid(row=self.model.MANPOWER + 1, column=r3 + 1, padx=pad)
-            self.shift_size_entry_list.append(shift_lim_var)
+            self.shift_lim_var_list.append(shift_lim_var)
+            shift_lim_bt = tk.Button(f_const, width=font_width - 1, textvariable=shift_lim_var,
+                                     command=self.change_shift_lim(r3), padx=pad - 1)
+            shift_lim_bt.grid(row=self.model.MANPOWER + 1, column=r3 + 1, padx=pad - 1)
+
+    def change_shift_lim(self, var_id):
+        def ret():
+            var = self.shift_lim_var_list[var_id]
+            if var.get() == 2:
+                var.set(0)
+            else:
+                var.set(var.get() + 1)
+
+        return ret
 
     # tab_showの表示（更新）
     def show_param(self):
@@ -114,11 +144,11 @@ class Application(tk.Frame):
         par_lb_3.grid(row=3, column=0)
         par_lb_4.grid(row=4, column=0)
 
-        self.par_en_0.grid(row=0, column=1)
-        self.par_en_1.grid(row=1, column=1)
-        self.par_en_2.grid(row=2, column=1)
-        self.par_en_3.grid(row=3, column=1)
-        self.par_en_4.grid(row=4, column=1)
+        self.par_sc_0.grid(row=0, column=1)
+        self.par_sc_1.grid(row=1, column=1)
+        self.par_sc_2.grid(row=2, column=1)
+        self.par_sc_3.grid(row=3, column=1)
+        self.par_sc_4.grid(row=4, column=1)
 
     # tab_resultの表示（更新）
     def show_result(self):
@@ -200,10 +230,17 @@ class Application(tk.Frame):
     # 最適化
     def optimize(self):
         ss = []
-        for var in self.shift_size_entry_list:
+        wd = []
+        for var in self.shift_lim_var_list:
             ss.append(int(var.get()))
-        self.model.setParam(des_const=self.var_0.get(), seq_const=self.var_1.get(), shift_size_const=self.var_2.get(),
-                            shift_size_limit=ss, workday_const=self.var_3.get(),
+        for var2 in self.workday_list:
+            wd.append(int(var2.get()))
+        self.model.setParam(des_const=int(self.var_0.get() * self.C_des),
+                            seq_const=int(self.var_1.get() * self.C_seq),
+                            shift_size_const=int(self.var_2.get() * self.C_lim),
+                            workday_const=int(self.var_3.get() * self.C_wrk),
+                            shift_size_limit=ss,
+                            workday=wd,
                             num_reads=self.var_4.get())
         self.model.setConst()
         self.model.sample()
