@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     # csvファイルから出勤希望度の制約を入力
     CONST = []
-    with open('shift.csv', encoding="utf-8-sig") as f:
+    with open('shift-main.csv', encoding="utf-8-sig") as f:
         reader = csv.reader(f)
         for row in reader:
             CONST.append([int(i) for i in row])
